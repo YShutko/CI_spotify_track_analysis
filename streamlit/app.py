@@ -61,19 +61,45 @@ def map_macro_genre(g):
         return "Other"
 
 @st.cache_data
-def load_data():
-    df = pd.read_csv("spotify_cleaned_data.csv")
+def load_data(filename="spotify_cleaned_data.csv"):
+    """
+    Robust loader that searches for the CSV file in multiple locations:
+    - Current working directory
+    - Directory where app.py is located
+    - Parent directory
+    - /streamlit/ folder
+    - /data/ folder
+    """
 
-    # Ensure macro_genre exists using your mapping
-    if "track_genre" in df.columns:
-        df["macro_genre"] = df["track_genre"].apply(map_macro_genre)
-    else:
-        df["macro_genre"] = "Other"
+    search_paths = [
+        filename,
+        os.path.join(os.getcwd(), filename),
+        os.path.join(os.path.dirname(__file__), filename),
+        os.path.join(os.path.dirname(__file__), "..", filename),
+        os.path.join(os.path.dirname(__file__), "streamlit", filename),
+        os.path.join(os.path.dirname(__file__), "..", "streamlit", filename),
+        os.path.join(os.path.dirname(__file__), "data", filename),
+        os.path.join(os.path.dirname(__file__), "..", "data", filename),
+    ]
 
-    return df
+    for path in search_paths:
+        if os.path.isfile(path):
+            st.success(f"Loaded dataset from: **{path}**")
+            return pd.read_csv(path)
 
+    # If file not found → raise helpful error
+    st.error("❌ Could not locate the dataset file!")
+    st.write("Searched locations:")
+    for p in search_paths:
+        st.write("-", p)
+
+    raise FileNotFoundError(
+        f"spotify_cleaned_data.csv not found in any usual location."
+    )
+
+
+# Example usage inside your app:
 df = load_data()
-
 # =========================================================
 # 2. LOAD MODELS FROM HUGGING FACE
 # =========================================================
