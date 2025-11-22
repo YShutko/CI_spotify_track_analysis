@@ -224,13 +224,54 @@ Insight: Instrumental tracks are almost exclusively found in electronic music in
     
  
 ## Models and Comparison (from [ml_models.ipynb](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/notebooks/ml_models.ipynb))
-- Linear Regression baseline: MAE 14.17, RMSE 19.32, R² 0.252 — weak fit, high error.
-- Random Forest (300 trees): MAE 4.86, RMSE 9.98, R² 0.801 — strongest performer in this run.
-- XGBoost (untuned): MAE 5.92, RMSE 11.03, R² 0.756 — good, but behind RF.
-- XGBoost (tuned): MAE 5.11, RMSE 9.99, R² 0.800 — closes the gap with RF after tuning.
-- Takeaway: tree ensembles give the best accuracy; tuning XGB nearly matches RF while offering faster inference knobs for deployment.
-  
+1. **Linear Regression**
+Model Description: Linear Regression predicts popularity as a weighted linear combination of audio features. It assumes straight-line relationships between the inputs and the target.
 
+Model:
+* Simple, transparent baseline
+* Shows whether popularity can be explained linearly
+* Coefficients allow easy interpretatio
+
+Performance: MAE: ~14.17. R²: ~0.25
+
+Popularity is not linearly predictable, confirming the need for more flexible models.
+
+2. **Random Forest** (300 trees)
+Random Forest is an ensemble of many decision trees. Each tree captures different non-linear patterns, and their averaged output stabilizes predictions.
+
+Model:
+* Handles non-linear relationships extremely well
+* Robust to noise and outliers
+* Works with mixed feature types
+* Provides feature importance
+
+Hyperparameters. 
+<img src="assets/Screenshot 2025-11-22 182439.png" width="600">
+
+Performance: MAE: ~4.86, RMSE: ~9.98, R²: ~0.801
+
+A major improvement over Linear Regression.
+Random Forest shows that non-linear audio patterns + artist popularity explain a large portion of popularity variance.
+
+3. **XGBoost Regressor**
+XGBoost is a gradient-boosted tree model where each tree corrects the errors of the previous ones. It is one of the strongest algorithms for structured/tabular data.
+
+Model:
+* Captures complex patterns
+* Regularized to avoid overfitting
+* Efficient and scalable
+* Produces stable feature importances
+
+Hyperparameter Tuning (RandomizedSearchCV)
+
+Best Parameters Found
+
+<img src="assets/Screenshot 2025-11-22 182351.png" width="600">
+
+Performance (After Tuning): MAE: ~5.11, RMSE: ~9.99, R²: ~0.800
+
+Nearly identical performance to Random Forest.
+XGBoost is slightly smoother and more regularized, but not significantly better on this dataset.
   
 ## Interactive Prediction Tools
 - **Notebook widget ([ipywidgets.ipynb](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/models_widgets/ipywidgets.ipynb))**  
