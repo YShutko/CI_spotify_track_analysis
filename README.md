@@ -14,7 +14,7 @@ Gradio on local host: Running on local [URL](http://127.0.0.1:7865)
 
 ## Data
 - Source: [Kaggle – Spotify Tracks Dataset](https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset)
-- Files: [raw data](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/data/spotify_dataset.csv) (raw, ~20 MB) and [cleaned dataset](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/data/spotify_cleaned_data.csv) (preprocessed subset used in all notebooks).
+- Files: [raw data](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/data/spotify_dataset.csv) and [cleaned dataset](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/data/spotify_cleaned_data.csv) (preprocessed subset used in all notebooks).
 - The dataset consists of the following columns:
   * track_id: Unique Spotify identifier for each track.
   * artists: List of artists performing the track, separated by semicolons.
@@ -58,9 +58,9 @@ Gradio on local host: Running on local [URL](http://127.0.0.1:7865)
   Loads multiple Hugging Face models and builds a Gradio UI with sliders and a genre dropdown. Use it to share a quick web demo; Gradio handles launching and optional sharing links. (Note: Ensure the selected model is passed through in the predict function before production use.)
 
 ## Suggested Workflow
-1) Use `data/spotify_cleaned_data.csv` to skip heavy preprocessing.
-2) Run `notebooks/Spotify_track_analysis.ipynb` to explore distributions, correlations, and genre-level mood/energy patterns.
-3) Train and compare models in `notebooks/ml_models.ipynb`; focus on RF vs tuned XGB.
+1) Use [cleaned dataset](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/data/spotify_cleaned_data.csv) to skip heavy preprocessing.
+2) Run [Spotify_track_analysis.ipynb](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/notebooks/Spotify_track_analysis.ipynb) to explore distributions, correlations, and genre-level mood/energy patterns.
+3) Train and compare models in [ml_models.ipynb](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/notebooks/ml_models.ipynb); focus on RF vs tuned XGB.
 4) Demo predictions with the ipywidgets notebook or the Gradio app for stakeholder feedback.
 
 ## Conclusion
