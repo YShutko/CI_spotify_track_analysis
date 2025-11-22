@@ -28,10 +28,11 @@ st.set_page_config(
 )
 
 # =========================================================
-# 1. DATA LOADING + MACRO-GENRE MAPPING
+# 1. DATA LOADING + MACRO-GENRE MAPPING (BULLETPROOF)
 # =========================================================
 
-def map_macro_genre(g):
+def map_macro_genre(g: str) -> str:
+    """Map detailed track_genre to a macro genre."""
     g = str(g).lower()
     if "pop" in g:
         return "Pop"
@@ -60,8 +61,9 @@ def map_macro_genre(g):
     else:
         return "Other"
 
+
 @st.cache_data
-def load_data(filename="spotify_cleaned_data.csv"):
+def load_data(filename: str = "spotify_cleaned_data.csv") -> pd.DataFrame:
     """
     Robust loader that searches for the CSV file in multiple locations:
     - Current working directory
@@ -70,62 +72,118 @@ def load_data(filename="spotify_cleaned_data.csv"):
     - /streamlit/ folder
     - /data/ folder
     """
+    here = os.path.dirname(__file__)
+    cwd = os.getcwd()
 
     search_paths = [
         filename,
-        os.path.join(os.getcwd(), filename),
-        os.path.join(os.path.dirname(__file__), filename),
-        os.path.join(os.path.dirname(__file__), "..", filename),
-        os.path.join(os.path.dirname(__file__), "streamlit", filename),
-        os.path.join(os.path.dirname(__file__), "..", "streamlit", filename),
-        os.path.join(os.path.dirname(__file__), "data", filename),
-        os.path.join(os.path.dirname(__file__), "..", "data", filename),
+        os.path.join(cwd, filename),
+        os.path.join(here, filename),
+        os.path.join(here, "..", filename),
+        os.path.join(here, "streamlit", filename),
+        os.path.join(here, "..", "streamlit", filename),
+        os.path.join(here, "data", filename),
+        os.path.join(here, "..", "data", filename),
     ]
 
     for path in search_paths:
         if os.path.isfile(path):
-            st.success(f"Loaded dataset from: **{path}**")
-            return pd.read_csv(path)
+            st.success(f"Loaded dataset from: **{os.path.relpath(path)}**")
+            df = pd.read_csv(path)
+
+            # Ensure macro_genre exists (recompute from track_genre if needed)
+            if "track_genre" in df.columns:
+                df["macro_genre"] = df["track_genre"].apply(map_macro_genre)
+            elif "macro_genre" not in df.columns:
+                df["macro_genre"] = "Other"
+
+            # Ensure explicit is boolean if present
+            if "explicit" in df.columns:
+                df["explicit"] = df["explicit"].astype(bool)
+
+            return df
 
     # If file not found → raise helpful error
-    st.error("❌ Could not locate the dataset file!")
+    st.error("❌ Could not locate the dataset file `spotify_cleaned_data.csv`!")
     st.write("Searched locations:")
     for p in search_paths:
-        st.write("-", p)
+        st.write("-", os.path.abspath(p))
 
     raise FileNotFoundError(
-        f"spotify_cleaned_data.csv not found in any usual location."
+        "spotify_cleaned_data.csv not found in any usual location. "
+        "Place it next to app.py or in a /data or /streamlit folder."
     )
 
 
-# Example usage inside your app:
 df = load_data()
+
+# Apply global popularity filter later; keep full df here
 # =========================================================
-# 2. LOAD MODELS FROM HUGGING FACE
+# 2. BULLETPROOF HF + LOCAL MODEL LOADER
 # =========================================================
 
 @st.cache_resource
-def load_models_from_hf():
-    REPO = "YShutko/spotify-popularity-models"  # adjust if different
+def load_models():
+    """
+    Load models either from local files (preferred) or from Hugging Face Hub.
+    This makes the app robust for local dev, Streamlit Cloud, Docker, HF Spaces.
+    """
+    REPO = "YShutko/spotify-popularity-models"  # HF repo id
 
+    # display name -> filename on disk / HF
     model_files = {
         "Random Forest": "random_forest_model.pkl",
         "XGBoost (Tuned)": "xgb_model_best.pkl",
         "Linear Regression": "linear_regression_model.pkl",
     }
 
+    here = os.path.dirname(__file__)
+    local_dirs = [
+        here,
+        os.path.join(here, "models"),
+        os.path.join(here, "models_widgets"),
+        os.path.join(here, "..", "models"),
+        os.path.join(here, "..", "models_widgets"),
+    ]
+
     models = {}
-    for name, fname in model_files.items():
-        model_path = hf_hub_download(
-            repo_id=REPO,
-            filename=fname,
-            token=None  # add token here if your files still require auth
+
+    for display_name, fname in model_files.items():
+        model_obj = None
+
+        # 1) Try local files first
+        for d in local_dirs:
+            local_path = os.path.join(d, fname)
+            if os.path.isfile(local_path):
+                st.info(f"Loading **{display_name}** from local file: `{os.path.relpath(local_path)}`")
+                model_obj = joblib.load(local_path)
+                break
+
+        # 2) If not found locally → try HF Hub
+        if model_obj is None:
+            try:
+                st.info(f"Downloading **{display_name}** from Hugging Face Hub…")
+                model_path = hf_hub_download(
+                    repo_id=REPO,
+                    filename=fname,
+                    token=None,  # add token here only if the repo/files are private
+                )
+                model_obj = joblib.load(model_path)
+            except Exception as e:
+                st.error(f"❌ Could not load model '{display_name}' from HF Hub. Error: {e}")
+
+        if model_obj is not None:
+            models[display_name] = model_obj
+
+    if not models:
+        raise RuntimeError(
+            "No models were loaded. Check local model files or HF Hub access / filenames."
         )
-        models[name] = joblib.load(model_path)
 
     return models
 
-models = load_models_from_hf()
+
+models = load_models()
 
 # =========================================================
 # 3. SIDEBAR (THEME + GLOBAL FILTERS)
@@ -138,8 +196,8 @@ global_min_pop = st.sidebar.slider("Global min popularity", 0, 100, 0)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(
-    "Models from **Hugging Face**:\n"
-    "- Random Forest\n- XGBoost (tuned)\n- Linear Regression"
+    "Models available:\n"
+    + "\n".join([f"- {name}" for name in models.keys()])
 )
 
 if theme == "Dark":
@@ -187,7 +245,7 @@ with tab1:
         "Artist", ["All"] + sorted(df_filtered_global["artists"].dropna().unique().tolist())
         if "artists" in df_filtered_global.columns else ["All"]
     )
-    explicit_filter = col4.selectbox("Explicit", ["All", True, False])
+    explicit_filter = col4.selectbox("Explicit", ["All", True, False]) if "explicit" in df_filtered_global.columns else "All"
 
     df_tab1 = df_filtered_global.copy()
     if macro_filter != "All":
