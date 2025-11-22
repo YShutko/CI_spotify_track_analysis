@@ -12,7 +12,7 @@ import streamlit.components.v1 as components
 from huggingface_hub import hf_hub_download
 import joblib
 
-#OPTIONAL: Spotify API (Spotipy)
+# =============== OPTIONAL: Spotify API (Spotipy) ===================
 try:
     import spotipy
     from spotipy.oauth2 import SpotifyOAuth
@@ -26,7 +26,9 @@ st.set_page_config(
     layout="wide",
     page_icon="🎧"
 )
-#1. DATA LOADING + MACRO-GENRE MAPPING
+
+# =========================================================
+# 1. DATA LOADING + MACRO-GENRE MAPPING
 # =========================================================
 
 def map_macro_genre(g):
@@ -60,7 +62,7 @@ def map_macro_genre(g):
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv("../data/spotify_cleaned_data.csv")
+    df = pd.read_csv("spotify_cleaned_data.csv")
 
     # Ensure macro_genre exists using your mapping
     if "track_genre" in df.columns:
@@ -71,7 +73,9 @@ def load_data():
     return df
 
 df = load_data()
- # 2. LOAD MODELS FROM HUGGING FACE
+
+# =========================================================
+# 2. LOAD MODELS FROM HUGGING FACE
 # =========================================================
 
 @st.cache_resource
@@ -96,10 +100,12 @@ def load_models_from_hf():
     return models
 
 models = load_models_from_hf()
+
+# =========================================================
 # 3. SIDEBAR (THEME + GLOBAL FILTERS)
 # =========================================================
 
-st.sidebar.title("Spotify Popularity App")
+st.sidebar.title("🎧 Spotify Popularity App")
 
 theme = st.sidebar.radio("Theme", ["Light", "Dark"], index=0)
 global_min_pop = st.sidebar.slider("Global min popularity", 0, 100, 0)
@@ -128,13 +134,14 @@ df_filtered_global = df[df["popularity"] >= global_min_pop].copy()
 # =========================================================
 
 tab1, tab2, tab3, tab4 = st.tabs(
-    ["Dataset", "EDA", "ML Prediction", "Playlist Builder"]
+    ["📁 Dataset", "📊 EDA", "🤖 ML Prediction", "🎶 Playlist Builder"]
 )
+
 # ---------------------------------------------------------
 # TAB 1 – DATASET
 # ---------------------------------------------------------
 with tab1:
-    st.title("Spotify Dataset Overview")
+    st.title("📁 Spotify Dataset Overview")
 
     st.write(
         "Explore the Spotify tracks by filtering on macro-genre, track genre, artist, "
@@ -176,7 +183,7 @@ with tab1:
 # TAB 2 – EDA
 # ---------------------------------------------------------
 with tab2:
-    st.title("Exploratory Data Analysis")
+    st.title("📊 Exploratory Data Analysis")
 
     st.write(
         "Key visualizations to understand how audio features, genres and mood relate "
@@ -224,11 +231,12 @@ with tab2:
     )
     st.plotly_chart(fig_scatter, use_container_width=True)
     st.markdown("Higher energy tracks tend to be louder, with clear genre clusters.")
+
 # ---------------------------------------------------------
 # TAB 3 – ML PREDICTION (IN-APP + GRADIO)
 # ---------------------------------------------------------
 with tab3:
-    st.title("Popularity Prediction")
+    st.title("🤖 Popularity Prediction")
 
     st.write(
         "Predict track popularity using different machine learning models. "
@@ -281,7 +289,7 @@ with tab3:
         )
 
         pred = model.predict(sample)[0]
-        st.success(f"Predicted popularity ({model_choice}): **{pred:.1f}**")
+        st.success(f"🎵 Predicted popularity ({model_choice}): **{pred:.1f}**")
 
     st.markdown("---")
 
@@ -299,10 +307,11 @@ with tab3:
     else:
         st.info("Set `gradio_app_url` in the code to embed your Gradio app here.")
 
-#TAB 4 – PLAYLIST BUILDER
+# ---------------------------------------------------------
+# TAB 4 – PLAYLIST BUILDER
 # ---------------------------------------------------------
 with tab4:
-    st.title("Playlist Composer")
+    st.title("🎶 Playlist Composer")
 
     st.write(
         "Build a playlist based on mood, macro-genre, energy, valence, and popularity. "
