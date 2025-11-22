@@ -1,12 +1,11 @@
-streamlit
+matplotlib
+plotly
 pandas
 numpy
-matplotlib
-seaborn
-plotly
 joblib
 huggingface_hub
 scikit-learn
 xgboost
 spotipy
 requests
+streamlit
