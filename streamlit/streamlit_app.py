@@ -1,4 +1,4 @@
-# app.py
+# streamlit_app.py
 
 import os
 import streamlit as st
@@ -27,9 +27,8 @@ st.set_page_config(
     page_icon="🎧",
 )
 
-
 # =========================================================
-# 1. DATA LOADING + MACRO-GENRE MAPPING
+# 1. DATA LOADING + MACRO-GENRE MAPPING + SAFE STRING COLUMNS
 # =========================================================
 
 def map_macro_genre(g: str) -> str:
@@ -67,22 +66,20 @@ def map_macro_genre(g: str) -> str:
 def load_data(filename: str = "spotify_cleaned_data.csv") -> pd.DataFrame:
     """
     Robust loader that searches for the CSV file in multiple locations:
+    - streamlit/ (this app folder)
     - Current working directory
-    - Directory where app.py is located
+    - Directory where this file is located
     - Parent directory
-    - /streamlit/ folder
     - /data/ folder
     """
     here = os.path.dirname(__file__)
     cwd = os.getcwd()
 
     search_paths = [
-        filename,
+        os.path.join(here, filename),                 # /streamlit/spotify_cleaned_data.csv  (Option A)
         os.path.join(cwd, filename),
-        os.path.join(here, filename),
+        filename,
         os.path.join(here, "..", filename),
-        os.path.join(here, "streamlit", filename),
-        os.path.join(here, "..", "streamlit", filename),
         os.path.join(here, "data", filename),
         os.path.join(here, "..", "data", filename),
     ]
@@ -102,6 +99,22 @@ def load_data(filename: str = "spotify_cleaned_data.csv") -> pd.DataFrame:
             if "explicit" in df.columns:
                 df["explicit"] = df["explicit"].astype(bool)
 
+            # 🔐 IMPORTANT: make string/object columns Arrow-safe to avoid crashes
+            # Convert possible list/mixed columns to clean strings
+            string_like_cols = [
+                "artists",
+                "track_name",
+                "track_genre",
+                "album_name",
+                "macro_genre",
+                "mood_energy",
+            ]
+            for col in string_like_cols:
+                if col in df.columns:
+                    df[col] = df[col].apply(
+                        lambda x: "; ".join(x) if isinstance(x, list) else str(x)
+                    )
+
             return df
 
     st.error("❌ Could not locate the dataset file `spotify_cleaned_data.csv`!")
@@ -111,12 +124,10 @@ def load_data(filename: str = "spotify_cleaned_data.csv") -> pd.DataFrame:
 
     raise FileNotFoundError(
         "spotify_cleaned_data.csv not found in any usual location. "
-        "Place it next to app.py or in a /data or /streamlit folder."
+        "Place it next to streamlit_app.py or in a /data folder."
     )
 
-for col in ["artists", "track_name", "track_genre", "mood_energy", "macro_genre"]:
-    if col in df.columns:
-        df[col] = df[col].apply(lambda x: "; ".join(x) if isinstance(x, list) else str(x))
+
 # =========================================================
 # 2. HF + LOCAL MODEL LOADER (ON DEMAND)
 # =========================================================
@@ -330,7 +341,8 @@ def main():
                 box=True,
                 points="all",
             )
-            st.plotly_chart(fig_violin, width="stretch")
+            st.plotly_chart(fig_violin, use_container_width=True)
+
             st.markdown(
                 "Different mood–energy combinations show different popularity distributions."
             )
@@ -346,7 +358,7 @@ def main():
             color="macro_genre",
             opacity=0.5,
         )
-        st.plotly_chart(fig_scatter, width="stretch")
+        st.plotly_chart(fig_scatter, use_container_width=True)
         st.markdown("Higher energy tracks tend to be louder, with clear genre clusters.")
 
     # -----------------------------------------------------
