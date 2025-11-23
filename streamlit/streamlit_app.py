@@ -1,6 +1,3 @@
-
-# streamlit_app.py (Corrected Version)
-
 import os
 import streamlit as st
 import pandas as pd
@@ -8,12 +5,11 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import plotly.express as px
-import streamlit.components.v1 as components
 
 from huggingface_hub import hf_hub_download
 import joblib
 
-# OPTIONAL: Spotify API (Spotipy)
+# Optional: Spotify API
 try:
     import spotipy
     from spotipy.oauth2 import SpotifyOAuth
@@ -21,11 +17,13 @@ try:
 except ImportError:
     SPOTIPY_AVAILABLE = False
 
+
 st.set_page_config(
     page_title="Spotify Popularity Project",
     layout="wide",
     page_icon="🎧",
 )
+
 
 # 1. DATA LOADING + MACRO-GENRE MAPPING
 
@@ -61,6 +59,7 @@ def map_macro_genre(g: str) -> str:
 
 @st.cache_data
 def load_data(filename: str = "spotify_cleaned_data.csv") -> pd.DataFrame:
+    """Robust loader that searches for the CSV file in common locations."""
     here = os.path.dirname(__file__)
     cwd = os.getcwd()
 
@@ -88,7 +87,7 @@ def load_data(filename: str = "spotify_cleaned_data.csv") -> pd.DataFrame:
             if "explicit" in df.columns:
                 df["explicit"] = df["explicit"].astype(bool)
 
-            # Make columns arrow-safe
+            # Make some columns string-safe
             string_cols = [
                 "artists",
                 "track_name",
@@ -105,8 +104,8 @@ def load_data(filename: str = "spotify_cleaned_data.csv") -> pd.DataFrame:
 
             return df
 
-    st.error("❌ spotify_cleaned_data.csv not found!")
-    raise FileNotFoundError("Dataset not found.")
+    st.error("❌ spotify_cleaned_data.csv not found in expected locations!")
+    raise FileNotFoundError("spotify_cleaned_data.csv not found.")
 
 
 # 2. MODEL LOADER
@@ -164,7 +163,7 @@ def main():
 
     st.sidebar.title("🎧 Spotify Popularity App")
 
-    theme = st.sidebar.radio("Theme", ["Light", "Dark"])
+    theme = st.sidebar.radio("Theme", ["Light", "Dark"], index=0)
     global_min_pop = st.sidebar.slider("Global min popularity", 0, 100, 0)
 
     if theme == "Dark":
@@ -173,7 +172,7 @@ def main():
             unsafe_allow_html=True,
         )
 
-    df_filtered_global = df[df["popularity"] >= global_min_pop]
+    df_filtered = df[df["popularity"] >= global_min_pop]
 
     tab1, tab2, tab3, tab4 = st.tabs(
         ["📁 Dataset", "📊 EDA", "🤖 ML Prediction", "🎶 Playlist Builder"]
@@ -182,22 +181,28 @@ def main():
     # TAB 1 — DATASET
     with tab1:
         st.title("📁 Spotify Dataset Overview")
-        st.dataframe(df_filtered_global, use_container_width=True)
+        st.dataframe(df_filtered, use_container_width=True)
 
     # TAB 2 — EDA
     with tab2:
         st.title("📊 Exploratory Data Analysis")
-        numeric_cols = df_filtered_global.select_dtypes(include=[np.number]).columns
-        fig, ax = plt.subplots(figsize=(10, 7))
-        sns.heatmap(df_filtered_global[numeric_cols].corr(), cmap="coolwarm", ax=ax)
-        st.pyplot(fig)
+        numeric_cols = df_filtered.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            fig, ax = plt.subplots(figsize=(10, 7))
+            sns.heatmap(df_filtered[numeric_cols].corr(), cmap="coolwarm", ax=ax)
+            st.pyplot(fig)
+        else:
+            st.info("No numeric columns available for correlation heatmap.")
 
     # TAB 3 — ML PREDICTION
     with tab3:
         st.title("🤖 Popularity Prediction")
         try:
             models = load_models()
-            st.success("Models loaded.")
+            if models:
+                st.success("Models loaded.")
+            else:
+                st.warning("No models could be loaded.")
         except Exception as e:
             st.error("Failed to load models.")
             st.exception(e)
@@ -219,13 +224,20 @@ def main():
                     "loudness": -8,
                     "duration_min": 3,
                 }])
-                pred = models[model_choice].predict(sample)[0]
+                model = models[model_choice]
+                pred = model.predict(sample)[0]
                 st.success(f"Prediction: {pred:.1f}")
 
     # TAB 4 — PLAYLIST BUILDER
     with tab4:
         st.title("🎶 Playlist Builder")
-        st.dataframe(df_filtered_global.head(20))
+        if len(df_filtered) == 0:
+            st.info("No tracks after filtering. Adjust the popularity slider.")
+        else:
+            n = st.slider("Number of tracks", 5, 50, 15)
+            playlist = df_filtered.sample(min(n, len(df_filtered)), random_state=42)
+            cols = [c for c in ["track_name", "artists", "popularity", "macro_genre"] if c in playlist.columns]
+            st.dataframe(playlist[cols], use_container_width=True)
 
 
 if __name__ == "__main__":
