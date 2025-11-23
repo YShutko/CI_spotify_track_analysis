@@ -1,4 +1,3 @@
-import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -209,23 +208,68 @@ def main():
             return
 
         model_choice = st.selectbox("Choose a model", list(models.keys()))
+
+        st.write("### Enter audio features")
+
+        # BASE FEATURES
         energy = st.slider("Energy", 0.0, 1.0, 0.6)
         dance = st.slider("Danceability", 0.0, 1.0, 0.6)
+        speech = st.slider("Speechiness", 0.0, 1.0, 0.05)
+        valence = st.slider("Valence", 0.0, 1.0, 0.5)
+        acoustic = st.slider("Acousticness", 0.0, 1.0, 0.2)
+        instrumental = st.slider("Instrumentalness", 0.0, 1.0, 0.0)
+        liveness = st.slider("Liveness", 0.0, 1.0, 0.1)
+        loudness = st.slider("Loudness (negative dB)", -60.0, 0.0, -8.0)
+        tempo = st.slider("Tempo (BPM)", 50, 220, 120)
+        duration = st.slider("Duration (minutes)", 1.0, 8.0, 3.0)
+
+        # REQUIRED ENGINEERED FEATURES FOR THE MODEL
+        energy_valence = energy * valence
+        loudness_dance = loudness * dance
+
+        # ARTIST POPULARITY proxy
+        artist_popularity = float(df["popularity"].mean())
+
+        # MACRO GENRE default
+        macro_genre = "Pop"
+
+        # Build final feature row for model
+        explicit_flag = st.selectbox("Explicit content?", ["No", "Yes"])
+        explicit_value = 1 if explicit_flag == "Yes" else 0
+
+        sample = pd.DataFrame([{
+            "danceability": dance,
+            "energy": energy,
+            "speechiness": speech,
+            "acousticness": acoustic,
+            "instrumentalness": instrumental,
+            "liveness": liveness,
+            "valence": valence,
+            "tempo": tempo,
+            "duration_min": duration,
+            "loudness": loudness,
+    
+            # NEW: required by model
+            "explicit": explicit_value,
+
+            # engineered features
+            "energy_valence": energy_valence,
+            "loudness_danceability": loudness_danceability,
+            "artist_popularity": artist_popularity,
+            "macro_genre": macro_genre
+        }])
+
+        st.write("### Features sent to model:")
+        st.dataframe(sample)
 
         if st.button("Predict"):
-            sample = pd.DataFrame([{
-                "energy": energy,
-                "danceability": dance,
-                "instrumentalness": 0,
-                "acousticness": 0,
-                "liveness": 0,
-                "valence": 0.5,
-                "tempo": 120,
-                "loudness": -8,
-                "duration_min": 3,
-            }])
-            pred = models[model_choice].predict(sample)[0]
-            st.success(f"Predicted popularity: {pred:.1f}")
+            try:
+                pred = models[model_choice].predict(sample)[0]
+                st.success(f"Predicted popularity: {pred:.1f}")
+            except Exception as e:
+                st.error("Prediction failed.")
+                st.exception(e)
+
 
     # ---------------------------
     # TAB 3 — PLAYLIST BUILDER
