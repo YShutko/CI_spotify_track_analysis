@@ -10,6 +10,9 @@ Analyze ~114k Spotify tracks to understand what drives popularity, explore mood/
 
 Gradio on local host: Running on local [URL](http://127.0.0.1:7865)
 
+## Spotify Popularity App (Streamlit)
+The [App](https://huggingface.co/spaces/YShutko/spotify-popularity-app) was deployed on Hugging Face
+
 ## Business Problems and Goals
 - What audio and metadata signals most influence a track’s popularity score (0–100)?
 - Can we quickly triage large catalogs to surface likely hits or candidate tracks for playlists?
@@ -298,10 +301,60 @@ XGBoost is slightly smoother and more regularized, but not significantly better 
 * Feature importance analyses show one dominant predictor—artist popularity—followed by tempo, valence, speechiness, and interaction features.
 
 ## Interactive Prediction Tools
-- **Notebook widget ([ipywidgets.ipynb](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/models_widgets/ipywidgets.ipynb))**  
+* **Notebook widget ([ipywidgets.ipynb](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/models_widgets/ipywidgets.ipynb))**  
   Downloads a selected model from the [Hugging Face repo](https://huggingface.co/YShutko/spotify-popularity-models/tree/main), loads macro-genre options from the cleaned data, and exposes sliders/dropdowns to test popularity predictions inline.
-- **Gradio app ([gradio.ipynb](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/models_widgets/gradio.ipynb))**  
+* **Gradio app ([gradio.ipynb](https://github.com/YShutko/CI_spotify_track_analysis/blob/3c1d5b469e04c4a46cf01e3d99477fac8d672044/models_widgets/gradio.ipynb))**  
   Loads multiple Hugging Face models and builds a Gradio UI with sliders and a genre dropdown. Use it to share a quick web demo; Gradio handles launching and optional sharing links. (Note: Ensure the selected model is passed through in the predict function before production use.)
+
+## Streamlit App
+**Spotify Popularity Prediction & Playlist Builder App**
+This interactive Streamlit application allows users to explore Spotify track data, filter music using audio features, build custom playlists, and predict track popularity using multiple machine learning models.
+It is designed as a full end-to-end data product: from data exploration to ML inference to user interaction.
+
+* Features
+1. Dataset Viewer
+
+    * View and filter Spotify tracks by popularity
+    * Auto-loaded dataset: spotify_cleaned_data.csv
+    * Automatic macro-genre classification
+
+2. Popularity Prediction (ML)
+    * Predict track popularity using models loaded from HuggingFace:
+    * Random Forest
+    * XGBoost (Tuned)
+    * Linear Regression
+    
+    Users set audio features (energy, danceability, valence, loudness, etc.) and the app:
+    * Builds all required engineered features
+    * Runs the selected model
+    * Returns predicted popularity instantly
+
+3. Playlist Builder
+    * Filter tracks by audio features (energy, danceability, tempo, etc.)
+    * Preview matching tracks
+    * Add songs to a personal playlist
+    * Playlist stored in session state
+
+How it Works
+* Streamlit UI with three tabs
+* Models downloaded from [Hugging Face repo](https://huggingface.co/YShutko/spotify-popularity-models)
+* Feature engineering matches the training pipeline
+* Error-free predictions with all required columns generated automatically
+
+Structure of the streamlit app repo:
+
+streamlit_app.py
+spotify_cleaned_data.csv
+requirements.txt
+README.md
+
+Deployment
+
+Compatible with:
+
+HuggingFace Spaces
+
+Streamlit Cloud
 
 ## Summary of key findings
 - Popularity is predictable with tree-based models using standard audio features; RF and tuned XGB achieve MAE ≈ 5–5.1 and R² ≈ 0.80 on this dataset.
