@@ -24,6 +24,23 @@ st.set_page_config(
 # 1. DATA LOADING
 # ---------------------------
 
+try:
+    import spotipy
+    from spotipy.oauth2 import SpotifyOAuth
+    SPOTIPY_AVAILABLE = True
+except ImportError:
+    SPOTIPY_AVAILABLE = False
+
+
+st.set_page_config(
+    page_title="Spotify Popularity Project",
+    layout="wide",
+    page_icon="🎧",
+)
+
+
+# 1. DATA LOADING + MACRO-GENRE MAPPING
+
 def map_macro_genre(g: str) -> str:
     g = str(g).lower()
     if "pop" in g:
@@ -34,50 +51,75 @@ def map_macro_genre(g: str) -> str:
         return "Hip-Hop/Rap"
     elif "r&b" in g or "soul" in g:
         return "R&B/Soul"
-    elif any(x in g for x in ["electro", "techno", "house", "edm", "dance"]):
+    elif "electro" in g or "techno" in g or "house" in g or "edm" in g or "dance" in g:
         return "Electronic/Dance"
-    elif any(x in g for x in ["metal", "hardcore"]):
+    elif "metal" in g or "hardcore" in g:
         return "Metal/Hardcore"
-    elif any(x in g for x in ["jazz", "blues"]):
+    elif "jazz" in g or "blues" in g:
         return "Jazz/Blues"
-    elif any(x in g for x in ["classical", "orchestra", "piano"]):
+    elif "classical" in g or "orchestra" in g or "piano" in g:
         return "Classical"
-    elif any(x in g for x in ["latin", "reggaeton", "sertanejo", "samba"]):
+    elif "latin" in g or "reggaeton" in g or "sertanejo" in g or "samba" in g:
         return "Latin"
     elif "country" in g:
         return "Country"
-    elif any(x in g for x in ["folk", "singer-songwriter"]):
+    elif "folk" in g or "singer-songwriter" in g:
         return "Folk"
-    elif any(x in g for x in ["indie", "alternative"]):
+    elif "indie" in g or "alternative" in g:
         return "Indie/Alternative"
-    return "Other"
+    else:
+        return "Other"
 
 
 @st.cache_data
-def load_data(filename="spotify_cleaned_data.csv"):
+def load_data(filename: str = "spotify_cleaned_data.csv") -> pd.DataFrame:
+    """Robust loader that searches for the CSV file in common locations."""
     here = os.path.dirname(__file__)
+    cwd = os.getcwd()
+
     search_paths = [
         os.path.join(here, filename),
+        os.path.join(cwd, filename),
         filename,
+        os.path.join(here, "..", filename),
+        os.path.join(here, "data", filename),
+        os.path.join(here, "..", "data", filename),
     ]
 
     for path in search_paths:
         if os.path.isfile(path):
-            st.success(f"Loaded dataset: {os.path.relpath(path)}")
+            st.success(f"Loaded dataset from: **{os.path.relpath(path)}**")
             df = pd.read_csv(path)
 
+            # macro_genre mapping
             if "track_genre" in df.columns:
                 df["macro_genre"] = df["track_genre"].apply(map_macro_genre)
-            else:
+            elif "macro_genre" not in df.columns:
                 df["macro_genre"] = "Other"
 
+            # explicit boolean
             if "explicit" in df.columns:
                 df["explicit"] = df["explicit"].astype(bool)
 
+            # Make some columns string-safe
+            string_cols = [
+                "artists",
+                "track_name",
+                "track_genre",
+                "album_name",
+                "macro_genre",
+                "mood_energy",
+            ]
+            for col in string_cols:
+                if col in df.columns:
+                    df[col] = df[col].apply(
+                        lambda x: "; ".join(x) if isinstance(x, list) else str(x)
+                    )
+
             return df
 
-    st.error("❌ CSV file not found!")
-    raise FileNotFoundError
+    st.error("❌ spotify_cleaned_data.csv not found in expected locations!")
+    raise FileNotFoundError("spotify_cleaned_data.csv not found.")
 
 
 # ---------------------------
@@ -93,15 +135,41 @@ def load_models():
         "Linear Regression": "linear_regression_model.pkl",
     }
 
-    models = {}
-    for name, f in model_files.items():
-        try:
-            p = hf_hub_download(repo_id=REPO, filename=f)
-            models[name] = joblib.load(p)
-        except Exception as e:
-            st.warning(f"Could not load {name}: {e}")
-    return models
+    here = os.path.dirname(__file__)
+    local_dirs = [
+        here,
+        os.path.join(here, "models"),
+        os.path.join(here, "models_widgets"),
+        os.path.join(here, "..", "models"),
+        os.path.join(here, "..", "models_widgets"),
+    ]
 
+    models = {}
+
+    for name, f in model_files.items():
+        model_obj = None
+
+        # Local load
+        for d in local_dirs:
+            p = os.path.join(d, f)
+            if os.path.isfile(p):
+                st.info(f"Loaded {name} from local file `{os.path.relpath(p)}`")
+                model_obj = joblib.load(p)
+                break
+
+        # HF download fallback
+        if model_obj is None:
+            try:
+                st.info(f"Downloading {name} from HF Hub...")
+                p = hf_hub_download(repo_id=REPO, filename=f, token=None)
+                model_obj = joblib.load(p)
+            except Exception as e:
+                st.error(f"Model {name} could not be loaded. {e}")
+
+        if model_obj is not None:
+            models[name] = model_obj
+
+    return models
 
 # ---------------------------
 # 3. MAIN APP
@@ -120,13 +188,13 @@ def main():
 
     df_filtered = df[df["popularity"] >= global_min_pop]
 
-    tab1, tab2, tab3 = st.tabs(["📁 Dataset", "🤖 Prediction", "🎶 Playlist Builder"])
+    tab1, tab2, tab3 = st.tabs(["Dataset", "Prediction", "Playlist Builder"])
 
     # ---------------------------
     # TAB 1 — DATASET
     # ---------------------------
     with tab1:
-        st.title("📁 Dataset Overview")
+        st.title("Dataset Overview")
         st.dataframe(df_filtered, use_container_width=True)
 
     # ---------------------------
